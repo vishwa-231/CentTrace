@@ -1,0 +1,9 @@
+{
+	"name": "cent_trace_function",
+	"version": "1.0.0",
+	"main": "index.js",
+	"author": "vishwa.sr@zohocorp.com",
+	"dependencies": {
+		"zcatalyst-sdk-node": "latest"
+	}
+}

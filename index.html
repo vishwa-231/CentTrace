@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Traceboard — Daily bug tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="timer.css" />
+    <link rel="stylesheet" href="analytics.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <a class="brand" href="#"><span class="brand-mark">↗</span><span>traceboard</span></a>
+      <nav>
+        <a class="nav-item" data-view="summary" href="#bug-summary"><span>◫</span> Bug summary</a>
+        <a class="nav-item active" data-view="tracker" href="#today"><span>⌘</span> Today <b id="todayCount">0</b></a>
+        <a class="nav-item" data-view="tracker" href="#all"><span>▤</span> All bugs</a>
+        <a class="nav-item" data-view="tracker" href="#guide"><span>◈</span> Debug guide</a>
+      </nav>
+      <section class="sidebar-tip">
+        <span class="tip-icon">✦</span>
+        <strong>Small notes, big wins.</strong>
+        <p>Record what you tried while it is fresh. Future-you will thank you.</p>
+      </section>
+      <div class="profile"><span class="avatar">Y</span><span><strong>Your workspace</strong><small>Personal tracker</small></span><button aria-label="Settings">···</button></div>
+    </aside>
+
+    <main>
+      <div id="trackerView">
+      <header>
+        <div><p class="eyebrow" id="dateLabel">MONDAY, MAY 20</p><h1>Your debugging desk</h1><p class="subtitle">Keep the thread. Find the fix.</p></div>
+        <button class="primary" id="newBugBtn"><span>+</span> Start debugging</button>
+      </header>
+
+      <section class="stats" aria-label="Bug summary">
+        <article><span class="stat-icon coral">!</span><div><strong id="openCount">0</strong><p>Open bugs</p></div><small class="trend">Keep moving →</small></article>
+        <article><span class="stat-icon amber">◷</span><div><strong id="investigatingCount">0</strong><p>Investigating</p></div><small>In progress</small></article>
+        <article><span class="stat-icon mint">✓</span><div><strong id="fixedCount">0</strong><p>Fixed this week</p></div><small>Nice work!</small></article>
+      </section>
+
+      <section class="focus-card" id="guide">
+        <div class="focus-copy"><p class="eyebrow">DEBUGGING COMPANION</p><h2>Not sure where to start?</h2><p>Use this quick path whenever a new bug lands on your desk.</p></div>
+        <ol class="steps">
+          <li><span>1</span><div><strong>Make it repeat</strong><small>Write the exact steps that cause it.</small></div></li>
+          <li><span>2</span><div><strong>Gather clues</strong><small>Save errors, logs, and screenshots.</small></div></li>
+          <li><span>3</span><div><strong>Test one idea</strong><small>Note what changed and what happened.</small></div></li>
+        </ol>
+      </section>
+
+      <section class="bugs" id="today">
+        <div class="section-heading"><div><h2>Today’s bugs</h2><p id="bugSummary">A clear record makes debugging calmer.</p></div><div class="filters"><button class="filter active" data-filter="all">All</button><button class="filter" data-filter="Open">Open</button><button class="filter" data-filter="Investigating">Investigating</button><button class="filter" data-filter="Fixed">Fixed</button></div></div>
+        <div class="bug-list" id="bugList"></div>
+      </section>
+      </div>
+      <section class="analytics" id="bug-summary"><div class="summary-header"><p class="eyebrow">BUG SUMMARY</p><h1>Verification trends</h1><p>Explore patterns across all bugs you have verified.</p></div><div id="chartArea" class="chart-area"><p class="chart-loading">Preparing your historical data…</p></div></section>
+    </main>
+
+    <dialog id="startDialog"><form id="startForm"><div class="modal-heading"><div><p class="eyebrow">STEP 1 OF 2 · START TIMER</p><h2>Start debugging</h2><p>Add the bug link. Your time starts when you continue.</p></div><button class="close" type="button" data-close>×</button></div><label>Bug link<input required name="link" type="url" placeholder="https://your-bug-tracker.com/issue/123" autofocus /><small>Paste the issue link you are starting now.</small></label><label>Short title<input required name="title" placeholder="e.g. Checkout button does nothing" /></label><div class="modal-actions"><button type="button" class="secondary" data-close>Cancel</button><button class="primary" type="submit">Start timer <span>→</span></button></div></form></dialog>
+    <dialog id="finishDialog"><form id="finishForm"><input type="hidden" name="id" /><div class="modal-heading"><div><p class="eyebrow">STEP 2 OF 2 · SAVE RESULT</p><h2>Finish debugging</h2><p id="timerReadout">Time is being calculated…</p></div><button class="close" type="button" data-close>×</button></div><div class="two-cols"><label>Milestone number<input required name="milestone" placeholder="e.g. M12" /></label><label>Release type<select required name="release"><option value="">Choose type</option><option>RB</option><option>DB</option><option>HB</option><option>HF</option></select></label></div><label>Category<select required name="category"><option value="">Choose the best category</option><option>NotReproducibleAI</option><option>Account Specific Issue</option><option>AalamConfigurationUpdate</option><option>Slowness</option><option>MissedRows</option><option>AalamsIssue</option><option>PI_Filed_via_Prediction</option><option>PI_FiledBy_RT</option><option>NotReproduciblePI</option><option>ChangedToAnotherAD</option><option>AutomationCodeFix</option><option>AlreadyFixed_AI</option><option>OtherDependencyIssues</option><option>NEW_CASE Bug</option><option>ZeroRows</option><option>PI_FiledBy_Default</option><option>LongPendingIssues</option><option>AssignedByAD</option></select><small>These choices are based on your screenshots.</small></label><label>Debugging notes<textarea name="notes" placeholder="What did you find? What fix or next action is needed?"></textarea></label><div class="modal-actions"><button type="button" class="secondary" data-close>Keep working</button><button class="primary" type="submit">Save completed bug <span>✓</span></button></div></form></dialog>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="timer.js"></script>
+    <script src="historical-dashboard-v3.js?v=drilldown-back-9"></script>
+    <script src="views.js"></script>
+  </body>
+</html>

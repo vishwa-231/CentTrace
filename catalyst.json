@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "targets": [
+      "cent_trace_function"
+    ],
+    "ignore": [],
+    "source": "functions"
+  },
+  "client": {
+    "source": "cent-trace",
+    "plugin": "zcatalyst-cli-plugin-react"
+  }
+}
