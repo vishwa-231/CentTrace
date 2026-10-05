@@ -1,6 +1,6 @@
 # centTrace project context
 
-Last updated: 2026-10-02
+Last updated: 2026-10-05
 
 ## Purpose
 
@@ -145,7 +145,7 @@ CRM lookups use the India API domain and CRM v8 endpoints. The application retri
 - Long Pending records are grouped by feature and store owner, current bug link, breakage, and findings logs.
 - Deleting a completed Long Pending bug can also remove LongPendingBugs and LongPendingLogs records after confirmation.
 - Bugs whose CRM title contains NEW CASE BREAKAGE are shown in Unstabilized Cases, grouped by CRM Unique ID and feature.
-- Restriction fetches every record from CRM custom view `1034369000840611390` with CRM page-token pagination (up to the API limit of 100,000 records), then matches Bug Owner to the authenticated user by CRM user ID, email, or normalized name. The complete owner-specific result is paginated at ten records per page. A row moves through Start debugging, Finish debugging, and Closed states without navigating away from Restriction. Starting and finishing a Restriction timer each open the CRM bug automatically in a new tab. CRM batch counts, record IDs, pagination tokens, duplicate IDs, owner resolution, and the client/server owner count are checked so an incomplete list fails visibly instead of appearing valid.
+- Restriction fetches every record from CRM custom view `1034369000840611390` with CRM page-token pagination (up to the API limit of 100,000 records), then matches Bug Owner to the authenticated user by CRM user ID, email, or normalized name. The complete owner-specific result is paginated at ten records per page. Investigating and paused Restriction bugs persisted in Data Store are merged into the live CRM result so they remain visible after reload even if CRM no longer returns them; only completed bugs are removed. A row moves through Start debugging, Pause/Resume, and Finish debugging without navigating away from Restriction. Starting a Restriction bug opens CRM in a new tab only after its timer is successfully created, while finishing opens CRM after the result is saved. CRM batch counts, record IDs, pagination tokens, duplicate IDs, owner resolution, and the client/server owner count are checked so an incomplete list fails visibly instead of appearing valid.
 - Today captures the authenticated user's Restriction bug count on their first CentTrace load each India calendar day and shows a top-level pie chart with the percentage completed that day. The daily baseline is stored per user and date in browser local storage so it does not shrink as CRM removes completed bugs from the live custom view.
 - Stabilizing a Unique ID requires confirmation and server-side ownership verification; only the authenticated owner of the source bug can perform it. Stabilized cases move to a separate tab and remain available for review.
 - StabilizedCases reads use the Data Store paged-row API so a configured but empty table returns an empty list instead of being reported as missing.
