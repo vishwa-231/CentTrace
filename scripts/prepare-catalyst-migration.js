@@ -92,6 +92,7 @@ const bugColumns = [
   'notes', 'source', 'is_archived', 'assigned_user_name', 'assigned_user_zuid',
   'bug_link', 'failure_id'
 ];
+const bugImportColumns = bugColumns.slice(1);
 
 const sessionColumns = [
   'legacy_bug_id', 'started_at', 'ended_at', 'elapsed_seconds', 'session_status',
@@ -102,12 +103,35 @@ const remainingTables = {
   LongPendingBugs: ['failure_id', 'feature_name', 'breakage', 'bug_link', 'bug_title', 'owner_name'],
   LongPendingLogs: ['failure_id', 'finding', 'owner_name', 'bug_link'],
   UserProfiles: ['user_zuid', 'user_name', 'email', 'role', 'is_active'],
-  StabilizedCases: ['unique_id', 'feature_name', 'stabilized_by_zuid', 'stabilized_by_name']
+  StabilizedCases: ['unique_id', 'feature_name', 'stabilized_by_zuid', 'stabilized_by_name'],
+  AutomationChangesets: ['bug_url', 'automation_changeset']
 };
+
+const bugFingerprint = record => JSON.stringify(bugImportColumns.map(column => String(record[column] ?? '')));
 
 const assertUnique = (records, column, label) => {
   const values = records.map(record => String(record[column] || '').trim()).filter(Boolean);
   if (new Set(values).size !== values.length) throw new Error(`${label} contains duplicate ${column} values.`);
+};
+
+const validateRemainingTables = prepared => {
+  assertUnique(prepared.LongPendingBugs, 'failure_id', 'LongPendingBugs export');
+  assertUnique(prepared.UserProfiles, 'user_zuid', 'UserProfiles export');
+  assertUnique(prepared.StabilizedCases, 'unique_id', 'StabilizedCases export');
+  assertUnique(prepared.AutomationChangesets, 'automation_changeset', 'AutomationChangesets export');
+
+  const longPendingIds = new Set(prepared.LongPendingBugs.map(record => record.failure_id));
+  const orphanLogIds = [...new Set(prepared.LongPendingLogs
+    .map(record => record.failure_id)
+    .filter(failureId => !longPendingIds.has(failureId)))];
+  if (orphanLogIds.length) {
+    throw new Error(`LongPendingLogs contains failure IDs absent from LongPendingBugs: ${orphanLogIds.join(', ')}`);
+  }
+
+  const invalidProfiles = prepared.UserProfiles.filter(record =>
+    !['ADMIN', 'STANDARD'].includes(record.role) || !['true', 'false'].includes(record.is_active.toLowerCase())
+  );
+  if (invalidProfiles.length) throw new Error('UserProfiles contains an invalid role or is_active value.');
 };
 
 const prepare = () => {
@@ -156,15 +180,32 @@ const remap = mappingFile => {
   const newBugs = recordsFromRows(parseCsv(fs.readFileSync(mappingPath, 'utf8').replace(/^\uFEFF/, '')));
   const pendingPath = path.join(outputDirectory, 'DebugSessions.pending-remap.csv');
   const pendingSessions = recordsFromRows(parseCsv(fs.readFileSync(pendingPath, 'utf8').replace(/^\uFEFF/, '')));
-  requireColumns(newBugs, ['ROWID', 'legacy_rowid'], 'New Bugs export');
+  requireColumns(newBugs, ['ROWID'], 'New Bugs export');
   requireColumns(pendingSessions, sessionColumns, 'Pending DebugSessions file');
 
   const mapping = new Map();
-  newBugs.forEach(record => {
-    if (!record.ROWID || !record.legacy_rowid) return;
-    if (mapping.has(record.legacy_rowid)) throw new Error(`Duplicate legacy_rowid in new Bugs export: ${record.legacy_rowid}`);
-    mapping.set(record.legacy_rowid, record.ROWID);
-  });
+  if (newBugs.some(record => record.legacy_rowid)) {
+    newBugs.forEach(record => {
+      if (!record.ROWID || !record.legacy_rowid) return;
+      if (mapping.has(record.legacy_rowid)) throw new Error(`Duplicate legacy_rowid in new Bugs export: ${record.legacy_rowid}`);
+      mapping.set(record.legacy_rowid, record.ROWID);
+    });
+  } else {
+    requireColumns(newBugs, bugImportColumns, 'New Bugs export');
+    const legacyMapPath = path.join(outputDirectory, 'Bugs.legacy-map.csv');
+    const legacyBugs = recordsFromRows(parseCsv(fs.readFileSync(legacyMapPath, 'utf8').replace(/^\uFEFF/, '')));
+    requireColumns(legacyBugs, ['legacy_rowid', ...bugImportColumns], 'Legacy Bugs map');
+    const targetByFingerprint = new Map();
+    newBugs.forEach(record => {
+      const fingerprint = bugFingerprint(record);
+      if (targetByFingerprint.has(fingerprint)) throw new Error('New Bugs export contains duplicate application records.');
+      targetByFingerprint.set(fingerprint, record.ROWID);
+    });
+    legacyBugs.forEach(record => {
+      const newRowId = targetByFingerprint.get(bugFingerprint(record));
+      if (newRowId) mapping.set(record.legacy_rowid, newRowId);
+    });
+  }
   const missing = [...new Set(pendingSessions.map(record => record.legacy_bug_id).filter(id => !mapping.has(id)))];
   if (missing.length) {
     throw new Error(`${missing.length} legacy Bugs ROWIDs are absent from the new Bugs export: ${missing.slice(0, 5).join(', ')}`);
@@ -177,8 +218,54 @@ const remap = mappingFile => {
   console.log('Output: migration/generated/DebugSessions.import.csv');
 };
 
+const prepareSnapshot = sourceDirectory => {
+  if (!sourceDirectory) throw new Error('Pass the directory containing the current Table-*.csv exports.');
+  const sourcePath = path.resolve(process.cwd(), sourceDirectory);
+  const bugs = readCsvFile(path.join(sourcePath, 'Table-Bugs.csv')).records;
+  const sessions = readCsvFile(path.join(sourcePath, 'Table-DebugSessions.csv')).records;
+  requireColumns(bugs, ['ROWID', ...bugImportColumns], 'Bugs export');
+  requireColumns(sessions, ['bug_id', ...sessionColumns.slice(1)], 'DebugSessions export');
+
+  const legacyBugIds = new Set(bugs.map(record => record.ROWID));
+  if (legacyBugIds.size !== bugs.length) throw new Error('Bugs export contains duplicate ROWIDs.');
+  const missingParents = [...new Set(sessions.map(record => record.bug_id).filter(id => !legacyBugIds.has(id)))];
+  if (missingParents.length) throw new Error(`${missingParents.length} DebugSessions rows have no Bugs parent.`);
+
+  const normalizedBugs = bugs.map(record => ({
+    ...record,
+    legacy_rowid: record.ROWID,
+    category: String(record.category || '').trim() || 'Uncategorized'
+  }));
+  const fingerprints = normalizedBugs.map(bugFingerprint);
+  if (new Set(fingerprints).size !== fingerprints.length) {
+    throw new Error('Bugs export contains duplicate application records and cannot be remapped safely.');
+  }
+
+  fs.mkdirSync(outputDirectory, { recursive: true });
+  writeRecords('Bugs.import.csv', bugImportColumns, normalizedBugs);
+  writeRecords('Bugs.legacy-map.csv', bugColumns, normalizedBugs);
+  writeRecords('DebugSessions.pending-remap.csv', sessionColumns, sessions.map(record => ({
+    ...record,
+    legacy_bug_id: record.bug_id
+  })));
+
+  const prepared = {};
+  Object.entries(remainingTables).forEach(([table, columns]) => {
+    const { headers, records } = readCsvFile(path.join(sourcePath, `Table-${table}.csv`));
+    const missing = columns.filter(column => !headers.includes(column));
+    if (missing.length) throw new Error(`${table} export is missing columns: ${missing.join(', ')}`);
+    prepared[table] = records;
+    writeRecords(`${table}.import.csv`, columns, records);
+  });
+
+  validateRemainingTables(prepared);
+  console.log(`Prepared ${bugs.length} Bugs and ${sessions.length} pending DebugSessions.`);
+  Object.entries(prepared).forEach(([table, records]) => console.log(`Prepared ${records.length} ${table} records.`));
+  console.log(`Output: ${path.relative(root, outputDirectory)}`);
+};
+
 const prepareRemaining = sourceDirectory => {
-  if (!sourceDirectory) throw new Error('Pass the directory containing the four Table-*.csv exports.');
+  if (!sourceDirectory) throw new Error('Pass the directory containing the five Table-*.csv exports.');
   const sourcePath = path.resolve(process.cwd(), sourceDirectory);
   const prepared = {};
   fs.mkdirSync(outputDirectory, { recursive: true });
@@ -193,22 +280,7 @@ const prepareRemaining = sourceDirectory => {
     console.log(`Prepared ${records.length} ${table} records.`);
   });
 
-  assertUnique(prepared.LongPendingBugs, 'failure_id', 'LongPendingBugs export');
-  assertUnique(prepared.UserProfiles, 'user_zuid', 'UserProfiles export');
-  assertUnique(prepared.StabilizedCases, 'unique_id', 'StabilizedCases export');
-
-  const longPendingIds = new Set(prepared.LongPendingBugs.map(record => record.failure_id));
-  const orphanLogIds = [...new Set(prepared.LongPendingLogs
-    .map(record => record.failure_id)
-    .filter(failureId => !longPendingIds.has(failureId)))];
-  if (orphanLogIds.length) {
-    throw new Error(`LongPendingLogs contains failure IDs absent from LongPendingBugs: ${orphanLogIds.join(', ')}`);
-  }
-
-  const invalidProfiles = prepared.UserProfiles.filter(record =>
-    !['ADMIN', 'STANDARD'].includes(record.role) || !['true', 'false'].includes(record.is_active.toLowerCase())
-  );
-  if (invalidProfiles.length) throw new Error('UserProfiles contains an invalid role or is_active value.');
+  validateRemainingTables(prepared);
   console.log(`Output: ${path.relative(root, outputDirectory)}`);
 };
 
@@ -217,6 +289,7 @@ try {
   if (command === 'prepare') prepare();
   else if (command === 'remap') remap(argument);
   else if (command === 'prepare-remaining') prepareRemaining(argument);
+  else if (command === 'prepare-snapshot') prepareSnapshot(argument);
   else throw new Error(`Unknown command: ${command}`);
 } catch (error) {
   console.error(`Migration preparation failed: ${error.message}`);

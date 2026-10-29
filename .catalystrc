@@ -1,9 +1,9 @@
 {
   "defaults": {
-    "project": 1
+    "project": 2
   },
   "actives": {
-    "project": 1,
+    "project": 2,
     "env": 1
   },
   "projects": [
@@ -30,6 +30,24 @@
           },
           "is_default": true,
           "action_required": false
+        }
+      ]
+    },
+    {
+      "idx": 2,
+      "id": "20463000006264093",
+      "name": "centtrace",
+      "domain": {
+        "id": "50046867483",
+        "name": "centtrace-60047414473.development"
+      },
+      "timezone": "Asia/Kolkata",
+      "env": [
+        {
+          "idx": 1,
+          "id": "60047414473",
+          "name": "Development",
+          "type": 3
         }
       ]
     }

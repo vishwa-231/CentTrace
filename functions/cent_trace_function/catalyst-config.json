@@ -2,8 +2,7 @@
 	"deployment": {
 		"name": "cent_trace_function",
 		"stack": "node24",
-		"type": "advancedio",
-		"env_variables": {}
+		"type": "advancedio"
 	},
 	"execution": {
 		"main": "index.js"
