@@ -10,9 +10,12 @@ function render() {
   $('#bugList').innerHTML = selected.length ? selected.map(b => { const done = !!b.finishedAt, elapsed = b.timeUnknown ? 'Not timed' : duration(b.startedAt, b.finishedAt); return `<article class="bug"><span class="bug-id">${String(bugs.indexOf(b)+1).padStart(2,'0')}</span><div><div class="bug-title">${escapeHTML(b.title)}</div><a class="bug-link" target="_blank" rel="noreferrer" href="${escapeHTML(b.link)}">Open bug ↗</a></div><div>${done ? `<span class="tag priority-low">${escapeHTML(b.release || '—')}</span><div class="done-meta">${escapeHTML(b.milestone || 'No milestone')}</div>` : '<span class="tag priority-medium">IN PROGRESS</span>'}</div><div class="elapsed ${done ? '' : 'live'}">${elapsed}${done ? '' : ' running'}</div>${done ? '<span class="status status-fixed">Saved</span>' : `<button class="finish-btn" data-finish="${b.id}">Finish →</button>`}</article>`; }).join('') : '<div class="empty"><strong>No bugs here yet.</strong>Start a debugging timer when you pick up your first issue.</div>';
   const active = bugs.filter(b => !b.finishedAt).length, done = bugs.length - active;
   const weekStart = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const fixedThisWeek = bugs.filter(b => b.finishedAt && b.finishedAt >= weekStart && b.finishedAt <= Date.now()).length;
-  $('#openCount').textContent = active; $('#investigatingCount').textContent = active; $('#fixedCount').textContent = fixedThisWeek; $('#todayCount').textContent = bugs.length;
-  $('#bugSummary').textContent = bugs.length ? `${active} active · ${done} completed overall · ${fixedThisWeek} verified this week.` : 'A clear record makes debugging calmer.';
+  const completedThisWeek = bugs.filter(b => b.finishedAt && b.finishedAt >= weekStart && b.finishedAt <= Date.now());
+  const investigatedThisWeek = completedThisWeek.length;
+  const fixedCategorySet = new Set(['AutomationCodeFix', 'AlreadyFixed_AI']);
+  const actualFixedThisWeek = completedThisWeek.filter(b => fixedCategorySet.has(String(b.category || '').trim())).length;
+  $('#openCount').textContent = active; $('#investigatingCount').textContent = active; $('#fixedCount').textContent = investigatedThisWeek; $('#actualFixedCount').textContent = actualFixedThisWeek; $('#todayCount').textContent = bugs.length;
+  $('#bugSummary').textContent = bugs.length ? `${active} active · ${done} completed overall · ${investigatedThisWeek} investigated this week · ${actualFixedThisWeek} actually fixed.` : 'A clear record makes debugging calmer.';
 }
 $('#newBugBtn').onclick = () => startDialog.showModal();
 document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => b.closest('dialog').close());
